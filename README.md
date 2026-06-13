@@ -1,118 +1,189 @@
-Weather‑Based Irrigation Automation
+# weather_irrigation_pipeline_2026
+Pipeline Repository for Summer 2026 MSBA Project
 
-Overview
-This project automates weather‑based irrigation decisions using a fully orchestrated data engineering pipeline.
-Every day, the system:
+## Project Structure
 
-1. Extracts weather data from the Open‑Meteo API
-2. Transforms and loads it into a SQL Server data warehouse
-3. Generates a daily irrigation recommendation
-4. Sends the decision via SMS notification
-5. Powers a Power BI dashboard for monitoring trends
+- **assets/**  
+  Images, diagrams, and media used for documentation or the Power BI dashboard.
 
-This project demonstrates end‑to‑end mastery of ETL, APIs, SQL modeling, automation, and real‑world data engineering practices.
+- **src/**   
+  Python modules for ETL and utilities.
 
-Features: 
+---
 
-Automated ETL Pipeline
-  * Extracts hourly and daily weather data
-  * Cleans, transforms, and enriches the dataset
-  * Loads into a SQL Server star schema
+## Scripts
 
-Irrigation Decision Engine
-  * Uses rainfall, temperature, and soil‑moisture logic
-  * Produces a daily WATER / DO NOT WATER recommendation
-  * Stores decisions in FactIrrigationDecision
+### Weather_Irrigation.py
+**Purpose:**  
+End‑to‑end ETL pipeline that extracts weather data, transforms it, loads it directly into SQL Server, and computes irrigation decisions for visualization in Power BI.
 
-SMS Notifications (Twilio)
-  * Sends a daily text message with:
-    --Today’s irrigation decision
-    --Reasoning
-  * Runs automatically via Windows Task Scheduler
+**Workflow:**
+1. Loads environment variables and configuration  
+2. Extracts hourly + daily weather data from Open‑Meteo API  
+3. Transforms timestamps, units, and derived metrics  
+4. Loads data **directly into SQL Server** using SQLAlchemy + pyodbc  
+   - `DimDate`  
+   - `FactDailyWeather`  
+   - `FactHourlyWeather`  
+   - `FactIrrigationDecision`  
+5. Applies irrigation decision logic (rainfall, soil moisture, thresholds)  
+6. Outputs results for Power BI dashboard consumption  
 
-Power BI Dashboard
-  * Visualizes weather trends
-  * Shows irrigation decisions over time
-  * Provides insights for water conservation
+**Usage:**
+```bash
+python Weather_Irrigation.py
+```
+### Weather Code Preloading
 
-Data Pipeline Details
-  1. Extract
-     Weather data is pulled from the Open‑Meteo API:
-      * Hourly: temperature, humidity, precipitation, soil moisture
-      * Daily: rainfall totals, evapotranspiration, max/min temps
-  2. Transform
-    * Convert timestamps
-    * Normalize units
-    * Create derived metrics
-    * Prepare fact/dimension tables
-  3. Load
-     Data is loaded into SQL Server:
+The `DimWeatherCode` lookup table is **preloaded using a SQL script** stored in the `/scripts` folder.  
+This table is **not populated by the Python ETL script**. Instead, it is loaded once during setup so that
+all official Open‑Meteo weather codes and descriptions are available for joins during the ETL process.
 
-     Dimension Tables
-       * DimDate
-       * DimLocation
-       * DimWeatherCondition
-     
-     Fact Tables
-       * FactHourlyWeather
-       * FactDailyWeather
-       * FactIrrigationDecision
+Preloading this table ensures:
+- Weather codes always match Open‑Meteo’s official definitions  
+- No foreign‑key or lookup failures occur during ETL  
+- Power BI visuals can display descriptive weather conditions instead of numeric codes  
 
-Irrigation Decision Logic
-  The decision engine evaluates:
-    * Rainfall in last 24 hours
-    * Forecasted precipitation
-    * Soil moisture
-    * Temperature thresholds
+The Python pipeline reads from `DimWeatherCode` but **never inserts or updates** its contents.
 
-  Example rule: If rainfall < 0.1 inches AND soil moisture < 30% → WATER  Else → DO NOT WATER
+---
 
-SMS Notification
+## Data Flow (Direct‑to‑SQL)
 
-  After the ETL completes, the script queries SQL Server:
+All data flows directly into SQL Server.
 
-  SELECT TOP 1 decision, reason
-  FROM FactIrrigationDecision
-  ORDER BY Date_id DESC
+### SQL Server Tables
+- **DimDate**
+- **FactDailyWeather**
+- **FactHourlyWeather**
+- **FactIrrigationDecision**
 
-  Then sends a text message using Twilio:
-  Today's irrigation decision: WATER
-  Reason: Soil moisture below threshold.
+---
 
-Installation
-      
-    1. Clone the repository
-      git clone https://github.com/chitravk/weather-irrigation-dashboard.git
-      cd weather-irrigation-dashboard
+## Irrigation Decision Logic
 
-    2. Configure environment variables
-       Create a .env file:
+**Evaluates:**
+- Rainfall in the last 24 hours  
+- Forecasted precipitation  
+- Soil moisture  
+- Temperature thresholds  
 
-Running the Pipeline
+**Example rule:**
+```bash
+If rainfall < 0.1 inches AND soil moisture < 30% → WATER
+Else → DO NOT WATER
+```
+The final decision is stored in SQL and visualized in Power BI.
 
-  * Manual Run
-    python Weather_Irrigation_notification.py
-  * Automated Run (Daily)
-    Use Windows Task Scheduler to run the script every morning.
+## Power BI Dashboards
 
-Power BI Dashboard
-  
-  The dashboard includes:
-    * Daily & hourly weather trends
-    * Irrigation decisions over time
-    * Rainfall vs. soil moisture
-    * Water conservation insights
+The project includes two Power BI dashboards that visualize the final irrigation decision and the underlying weather patterns used to make that decision.
 
-Technologies Used
+### **1. Irrigation Decision Overview**
 
-    * Python (requests, pandas, SQLAlchemy, pyodbc)
-    * SQL Server
-    * Twilio SMS API
-    * Power BI
-    * Windows Task Scheduler
-    * Open‑Meteo Weather API
+This dashboard displays:
+- **Today's irrigation decision** (WATER / DO NOT WATER)
+- **Reason for the decision** (e.g., insufficient rain, adequate moisture)
+- A combined **Daily ETₒ (water demand)** and **Rainfall** chart
+- A date slicer for selecting the analysis window
 
-Future Enhancements
+This view helps quickly understand whether irrigation is needed based on recent weather conditions and evapotranspiration trends.
 
-    * Add soil moisture sensor integration
-    * Build a mobile‑friendly dashboard
+### **2. Rainfall Trend Dashboard**
+
+This dashboard focuses on:
+- **Daily rainfall amounts**
+- A clear trend line showing declining or increasing rainfall
+- The same date slicer for filtering the analysis period
+
+This view supports the irrigation decision by showing whether recent rainfall has been sufficient.
+
+Both dashboards are powered directly from SQL Server tables populated by the ETL pipeline:
+- `FactDailyWeather`
+- `FactHourlyWeather`
+- `FactIrrigationDecision`
+- `DimDate`
+- `DimWeatherCode` (preloaded)
+
+These dashboards provide a complete, data‑driven view of weather‑based irrigation needs.
+
+## Requirements
+
+Install all dependencies from `requirements.txt`:
+
+```bash
+pip install -r requirements.txt
+```
+Key Libraries:
+- `requests` — HTTP client for calling the Open‑Meteo API
+
+- `pandas` — Data manipulation and transformation
+
+- `sqlalchemy` — Engine/ORM for loading data into SQL Server
+
+- `pyodbc` — ODBC driver for SQL Server connectivity
+
+- `python-dotenv` — Loads environment variables from .env
+---
+## Setup and Run
+1. Create and activate a Python virtual environment:
+   - Windows:
+     ```powershell
+     python -m venv .venv
+     .\.venv\Scripts\Activate.ps1
+     ```
+   - macOS / Linux:
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
+
+2. Install dependencies:
+     ```bash
+      pip install -r requirements.txt
+     ```
+3. Configure database and API settings
+
+   Create a .env file at the repository root:
+
+   ```env
+    DB_SERVER=localhost\SQLEXPRESS
+    DB_NAME=WeatherDB
+    DB_DRIVER=ODBC Driver 18 for SQL Server
+
+    LATITUDE=38.2527
+    LONGITUDE=-85.7585
+   ```
+4. Preload Weather Codes (Required Step)
+   Before running the ETL pipeline, preload the weather code lookup table:
+
+   The SQL script is located in:
+   ```
+    /scripts/preload_weather_codes.sql
+   ```
+   Run it once in SQL Server Management Studio (SSMS) to populate:
+
+   ```
+    DimWeatherCode  
+   ```
+   This table is NOT populated by Python — it must exist before ETL runs.
+5. Run the ETL Pipeline
+   This script extracts weather data, transforms it, loads it into SQL Server,
+   and prepares the data for visualization in Power BI.
+
+   ```bash
+    python Weather_Irrigation.py
+   ```
+6. View Results in Power BI
+   Open the Power BI dashboard connected to your SQL Server database to explore:
+
+     - Daily & hourly weather trends
+
+     - Irrigation decisions
+
+      - Rainfall vs. soil moisture
+
+      - Temperature patterns
+
+      - Water conservation insights
+
