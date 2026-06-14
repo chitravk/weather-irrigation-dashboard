@@ -1,0 +1,6 @@
+requests
+pandas
+sqlalchemy
+pyodbc
+python-dotenv
+openmeteo-requests
