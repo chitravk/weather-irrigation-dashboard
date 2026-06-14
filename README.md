@@ -3,10 +3,10 @@ Pipeline Repository for Summer 2026 MSBA Project
 
 ## Project Structure
 
-- **assets/**  
+- **Documentations/**  
   Images, diagrams, and media used for documentation or the Power BI dashboard.
 
-- **src/**   
+- **Python Scripts/**   
   Python modules for ETL and utilities.
 
 ---
