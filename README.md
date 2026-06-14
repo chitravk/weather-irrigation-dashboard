@@ -8,7 +8,9 @@ Pipeline Repository for Summer 2026 MSBA Project
 
 - **Python Scripts/**   
   Python modules for ETL and utilities.
-
+  
+- **SQL Codes/**   
+  SQL Scripts used to preload and test.
 ---
 
 ## Scripts
